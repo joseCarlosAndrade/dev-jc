@@ -11,12 +11,12 @@
 #include<pthread.h>
 #include<semaphore.h>
 
-#define T 50
+#define T 5000
 
 /* t0 libera a t1, que libera a t2, .... t n-1 libera a t0
 main inicializa todas as threads e imprime
 
-todos os semaphores sao inicializados em 1
+todos os semaphores sao inicializados em 0 (bloqueados)
 [0, 1, 2, 3, 4, 5, ..., T]
 [1, 1, 1, 1, 1, 1, ..., 1]
 
@@ -28,7 +28,7 @@ T2 espera por sempahore[2]
 ..
 Tn-1 espera por semaphore[T-1]
 
-apos liberadas, as threads incrementam o token & libera o semaphore[i+1]
+apos liberadas, as threads incrementam o token & libera o semaphore[i+1] (post)
 obs: exceto a ultima, que libera o sempahore[0] (o qual a main espera)
 
 apos todas as inicializaçoes, main libera o semaphore[1] e espera o sempahore[0], e a magica acontece
@@ -50,20 +50,24 @@ void incrementer(void *inc_id) {
     sem_wait(&(semaphores[*inc]));
     token++;
 
+    printf("thread %d, token %d\n", *inc, token);
+    // fflush(0);
+
     // liberar semaphoro[inc+1] (caso nao seja o ultimo)
     if (*inc < T-1) sem_post(&(semaphores[*inc +1]));
     else sem_post(&(semaphores[0])); // libera o primeiro (T0)
 
-    free (inc_id); // variavel dinamicamente alocada
+    free (inc_id); // variavell dinamicamente alocada
 }   
 
 int main() {
 
     pthread_t handlers[T];
     
+    sem_init(&(semaphores[0]), 0, 0); //TOMAR CUIDADO COM ISS!!!!!!
 
-    for (int i = 0; i < T ; i++) {
-        sem_init(&(semaphores[i]), 0, 1); // todos os semaphores começam em 1
+    for (int i = 1; i < T ; i++) {
+        sem_init(&(semaphores[i]), 0, 0); // todos os semaphores começam em 1
 
         int * incrementer_id = malloc(sizeof(int));
         if (incrementer_id == NULL) {
@@ -71,7 +75,7 @@ int main() {
             exit(EXIT_FAILURE);
         }   
         
-        *incrementer_id = i+1;
+        *incrementer_id = i;
 
         if (pthread_create(&(handlers[i]), 0, (void*) incrementer, incrementer_id) != 0) {
             printf("error ao criar thread: %d", *incrementer_id);
